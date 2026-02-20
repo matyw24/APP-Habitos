@@ -9,7 +9,7 @@ export interface HabitDef {
   streak: number;
 }
 
-export type AppPage = 'habits' | 'clips' | 'stats' | 'manifestation';
+export type AppPage = 'habits' | 'clips' | 'stats' | 'manifestation' | 'auth';
 
 export interface Affirmation {
   id: string;

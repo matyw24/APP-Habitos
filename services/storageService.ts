@@ -1,5 +1,6 @@
 
 import { HabitStats } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 const STORAGE_KEY = 'atomic_clips_data_v7'; 
 
@@ -50,4 +51,33 @@ export const getInitialStats = (): HabitStats => {
 
 export const saveStats = (stats: HabitStats) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+};
+
+export const saveStatsToSupabase = async (userId: string, stats: HabitStats) => {
+  const { error } = await supabase
+    .from('user_data')
+    .upsert({ user_id: userId, data: stats, updated_at: new Date().toISOString() });
+  
+  if (error) {
+    console.error('Error saving to Supabase:', error);
+    throw error;
+  }
+};
+
+export const loadStatsFromSupabase = async (userId: string): Promise<HabitStats | null> => {
+  const { data, error } = await supabase
+    .from('user_data')
+    .select('data')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error loading from Supabase:', error);
+    return null;
+  }
+
+  if (data && data.data) {
+    return data.data as HabitStats;
+  }
+  return null;
 };

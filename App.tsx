@@ -1,7 +1,9 @@
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { HabitStats, HabitDef, AppPage, TimeOfDay, Affirmation, VisionItem, PriorityTask } from './types';
-import { getInitialStats, saveStats } from './services/storageService';
+import { getInitialStats, saveStats, saveStatsToSupabase, loadStatsFromSupabase } from './services/storageService';
+import { supabase } from './lib/supabaseClient';
+import { AuthPage } from './components/AuthPage';
 import { PaperClipTracker } from './components/PaperClipJar';
 import { PerformanceLineChart, WeeklyActivityChart } from './components/MetricCharts';
 import { HabitCalendar } from './components/HabitCalendar';
@@ -44,9 +46,50 @@ const App: React.FC = () => {
   const [modalMode, setModalMode] = useState<'habit' | 'vision' | 'affirmation' | 'priority'>('habit');
   const [editingHabit, setEditingHabit] = useState<HabitDef | null>(null);
   const [showNotification, setShowNotification] = useState(false);
+  const [user, setUser] = useState<any>(null);
   
   const notificationTimerRef = useRef<number | null>(null);
   const lastCelebratedDateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadStatsFromSupabase(session.user.id).then(remoteStats => {
+          if (remoteStats) {
+            setStats(remoteStats);
+            saveStats(remoteStats); // Update local storage too
+          }
+        });
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadStatsFromSupabase(session.user.id).then(remoteStats => {
+          if (remoteStats) {
+            setStats(remoteStats);
+            saveStats(remoteStats);
+          }
+        });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Sync to Supabase when stats change (debounced)
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        saveStatsToSupabase(user.id, stats).catch(console.error);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [stats, user]);
 
   // Helper local para guardar y actualizar estado
   const updateStats = (updater: (prev: HabitStats) => HabitStats) => {
@@ -378,13 +421,27 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button className="p-2 text-zinc-500"><Search size={20}/></button>
-          <div className="w-9 h-9 rounded-full bg-zinc-900 border border-white/10 overflow-hidden grayscale opacity-80">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
-          </div>
+          <button 
+            onClick={() => setCurrentPage('auth')}
+            className="w-9 h-9 rounded-full bg-zinc-900 border border-white/10 overflow-hidden grayscale opacity-80 hover:opacity-100 transition-opacity"
+          >
+            {user ? (
+              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} alt="User" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-xs font-bold text-zinc-400">?</div>
+            )}
+          </button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pt-4 pb-32">
+        {currentPage === 'auth' && (
+          <AuthPage 
+            onBack={() => setCurrentPage('habits')} 
+            onAuthSuccess={() => setCurrentPage('habits')} 
+          />
+        )}
+
         {currentPage === 'habits' && (
           <div className="animate-fade animate-slide space-y-8">
             <HorizontalCalendar selectedDate={selectedDate} onSelectDate={setSelectedDate} stats={stats} />

@@ -1,9 +1,11 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// ¡IMPORTANTE! Reemplaza estas variables con las de tu proyecto de Supabase
-// Puedes encontrarlas en Project Settings -> API
-const SUPABASE_URL = 'TU_SUPABASE_URL_AQUI'; 
-const SUPABASE_ANON_KEY = 'TU_SUPABASE_ANON_KEY_AQUI';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('Supabase credentials not found in environment variables');
+}
+
+export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
