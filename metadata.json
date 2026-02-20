@@ -1,0 +1,5 @@
+{
+  "name": "Atomic Clips",
+  "description": "A gamified habit tracker based on the Paper Clip Strategy from Atomic Habits. Features interactive jars, exponential growth visualizations, and consistency tracking.",
+  "requestFramePermissions": []
+}
